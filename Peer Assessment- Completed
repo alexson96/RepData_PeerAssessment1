@@ -1,0 +1,100 @@
+LOADING AND PROCESSING THE DATA
+  #Read the Activity monitoring data set from the working directory
+maindata <- read.csv("./repdata-data-activity/activity.csv", stringsAsFactors = FALSE)
+
+WHAT IS MEAN TOTAL NUMBER OF STEPS TAKEN PER DAY
+  #Group the data by date and total steps taken each day
+library(dplyr)
+sumstepsperday <- maindata %>% group_by(date) %>% summarise(total = sum(steps, na.rm = T))
+
+  #Defining the total meaan, median of total steps per day
+totalmean <- mean(total.steps.per.day$total)
+print(totalmean)
+totalmedian <- median(sumstepsperday$total)
+print(totalmedian)
+
+  #Font size for all ggplot2 plots
+library(ggplot2)
+theme_set(theme_gray(base_size = 14))
+
+  #Histogram for a general dist. of #s, representing steps per day in data
+ggplot(sumstepsperday, aes(x = total)) + geom_histogram(fill = "blue", colour = "black") + geom_vline(xintercept = totalmean, colour = "orange", linetype = "dashed", size = 1) + geom_vline(xintercept = totalmedian, colour = "yellow", linetype = "dashed", size = 1) + labs(title = "Histogram of Total Steps \n per Day") + labs(x = "", y = "")
+
+THE MEAN AND MEDIAN TOTAL NUMBER OF STEPS TAKEN PER DAY
+#ORANGE line represents mean total # of steps per day ~= 9354
+#YELLOW line represents median total # of steps per day ~= 10395
+
+SUM STEPS FOR EACH PARTICULAR DAY
+  #Let's observe in subsequent 5 minute intervals
+  #Total the steps per day --> bar plot
+  #X-axis elements connects to a particular day, y-axis elements is total steps on that particular day
+ggplot(sumstepsperday, aes(date, total)) + geom_bar(fill = "green", colour = "black") + theme(axis.text.x = element_text(angle = 90, hjust = 1)) + geom_hline(yintercept = totalmean, colour = "orange", linetype = "dashed", size = 1) + geom_hline(yintercept = totalmedian, colour = "yellow", linetype = "dashed", size = 1) + labs(title = "Total Steps For a Particular Day") + labs(x = "Date", y = "Total Steps")
+WHAT IS THE AVERAGE DAILY ACTIVITY PATTERN?
+  #First make a data frame with the # of steps, averaged over all days
+avgintsteps <- maindata %>% group_by(interval) %>% summarise(avgint = mean(steps, na.rm = T))
+  
+  #Which interval contains max # of steps...
+maxstepsintvl.ind <- which(avgintsteps$avgint == max(avgintsteps$avgint))
+maxstepsintvl <- avgintsteps[maxstepsintvl.ind, 1]
+
+qplot(interval, avgint, data = avgintsteps) + geom_line() + geom_vline(xintercept = maxstepsintvl, colour = "yellow", linetype = "dashed", size = 1) + labs(title = "Time Pattern of 5-min. Intervals and Avg. Steps, \n Averaged Over All Days") + labs(x = "5-min Interval", y = "# of Steps")
+          #On the plot, the YELLOW line represents the max averaged steps for each 5-min time interval. The max is in the 835 5-min interval!!! (reasonable since, in early day, people are walking/running around more to go to work, school, etc.)
+
+INPUTTING MISSING VALUES
+  #Calc, report total of missing values in dataset (total rows with NAs)
+NArowsnum <- nrow(maindata) - sum(complete.cases(maindata))
+
+  #Use avgintsteps dataframe, containing avg steps for each interval
+  #Substitute NA values with steps mean values of interval that the missing value belongs to
+  #Make a copy of base dataframe.
+maindataNAimputed <- maindata
+for (row.num in 1:nrow(maindataNAimputed)) {
+  if (is.na(maindataNAimputed[row.num, "steps"])) {
+    interval.sgn <- maindataNAimputed[row.num, "interval"]
+    interval.sgn.ind <- which(avgintsteps[interval.sgn.ind, "avgint"]
+    interval.steps.mean <- avgintsteps[interval.sgn.ind, "avgint"]
+    maindataNAimputed[row.num, "steps"] <- interval.steps.mean
+    message(paste("NA value in row number. ", row.num, " imputed!"))
+  }
+}
+
+  #Check if # of complete cases = # of rows...
+(nrow(maindataNAimputed) - sum(complete.cases(maindataNAimpputed))) == 0
+
+  #Histogram for total # of steps per day with imputed NA values
+total.steps.per.day.imputed <- maindataNAimputed %>% group.by(date) %>% summarise(total = sum(steps, na.rm = T))
+total.mean.imputed <- mean(total.steps.per.day.imputed$total)
+print(total.mean.imputed)
+
+total.median.imputed <- median(total.steps.per.day.imputed$total)
+print(total.median.imputed)
+
+  #Histogram displays a gen. dist. of #s which are total steps per day
+ggplot(total.steps.per.day.imputed, aes(x = total)) + geom_histogram(fill = "yellow", colour = "black") + geom_vline(xintercept = total.mean.imputed, colour = "orange", linetype = "dashed", size = 1) + geom_vline(xintercept = total.median.imputed, colour = "red", linetype = "dashed", size = 1) + labs(title = "Histogram of Total # Steps Taken per Day \n in the Dataset w/ imputed NA values") + labs(x = "", y= "")
+
+ARE THERE DIFFERENCES IN ACTIVITY PATTERNS BETWEEN WEEKDAYS AND WEEKENDS?
+  #Set lang to English (for weekday abbrv.)
+Sys.setenv(LANGUAGE = "en")
+Sys.setlocale("LC_TIME", "English")
+
+  #Make new factor var. in dataset (two levels) - weekday and weekend --> indicating whether a given date is weekday/weekend day
+weekdays.sgn <- weekdays9as.Date(maindataNAimputed$date))
+maindataNAimputed$day.type <- sapply(weekdays.sgn, function(sgn) {
+  if (sgn %in% c("Saturday", "Sunday")) {
+    return("weekend")
+  } else {
+    return("weekday")
+  }
+})
+
+#Group data by intvl and day type and get avg steps # for each group
+day.type.intv.steps <- maindataNAimputed %>% group_by(interval, day.type) %>% summarise(avg.steps = mean(steps))
+
+#Panel plot containing time series plot fo 5 min Intvls and avg # steps, avged across all weekdays/weekend days
+library(lattice)
+xyplot(avg.steps ~interval | day.type, data = day.type.intv.steps, type = "b", layout = c(1, 2))
+
+#Panel plot should allow for a conlcusion that there is a diff. in activity patterns btwn weekdays and weekend days for the individual:
+  #Tends to wake up and go to sleep at a later time than on weekdays
+  #Weekend mornings have less steps taken (probably lazier on weekends)
+  #But Weekends have a higher intensity than weekdays in terms of steps... interesting enough...
